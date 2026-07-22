@@ -1,5 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { findRuleForHost, normalizeSite, type SiteRule } from '../src/lib/config';
+import {
+  createDefaultRuleName,
+  findRuleForHost,
+  getRulesForHost,
+  normalizeSite,
+  parseSites
+} from '../src/lib/config';
+import type { SiteRule } from '../src/lib/types';
+
+const baseRule: SiteRule = {
+  id: 'r1',
+  name: 'example.com rule #1',
+  sites: ['example.com'],
+  locale: 'en-US',
+  active: true,
+  agent: {
+    userAgent: '',
+    platform: '',
+    appVersion: '',
+    secChUa: '',
+    secChUaMobile: '',
+    secChUaPlatform: ''
+  }
+};
 
 describe('normalizeSite', () => {
   it('removes protocol and path', () => {
@@ -11,17 +34,63 @@ describe('normalizeSite', () => {
   });
 });
 
-describe('findRuleForHost', () => {
-  const rules: SiteRule[] = [
-    { site: 'example.com', locale: 'en-US', userAgent: '' },
-    { site: 'shop.example.com', locale: 'fr-FR', userAgent: 'agent-a' }
-  ];
+describe('parseSites', () => {
+  it('creates a clean unique site list', () => {
+    expect(parseSites('example.com, blog.example.com example.com')).toEqual([
+      'example.com',
+      'blog.example.com'
+    ]);
+  });
+});
 
-  it('matches an exact host', () => {
+describe('findRuleForHost', () => {
+  it('returns active exact match first', () => {
+    const rules: SiteRule[] = [
+      {
+        ...baseRule,
+        id: 'r2',
+        name: 'shop rule',
+        sites: ['shop.example.com'],
+        locale: 'fr-FR'
+      },
+      { ...baseRule }
+    ];
+
     expect(findRuleForHost('shop.example.com', rules)?.locale).toBe('fr-FR');
   });
 
-  it('matches a parent host when exact match is not set', () => {
-    expect(findRuleForHost('blog.example.com', rules)?.locale).toBe('en-US');
+  it('skips inactive rules', () => {
+    const rules: SiteRule[] = [
+      { ...baseRule, id: 'r3', active: false, locale: 'de-DE' }
+    ];
+
+    expect(findRuleForHost('example.com', rules)).toBeUndefined();
+  });
+});
+
+describe('getRulesForHost', () => {
+  it('filters inactive rules by default', () => {
+    const rules: SiteRule[] = [
+      { ...baseRule },
+      { ...baseRule, id: 'r4', name: 'inactive', active: false }
+    ];
+
+    expect(getRulesForHost('example.com', rules).map((rule) => rule.id)).toEqual(['r1']);
+  });
+
+  it('can include inactive rules', () => {
+    const rules: SiteRule[] = [
+      { ...baseRule },
+      { ...baseRule, id: 'r4', name: 'inactive', active: false }
+    ];
+
+    expect(getRulesForHost('example.com', rules, true).length).toBe(2);
+  });
+});
+
+describe('createDefaultRuleName', () => {
+  it('uses site and count', () => {
+    const rules: SiteRule[] = [{ ...baseRule }, { ...baseRule, id: 'r5' }];
+    expect(createDefaultRuleName('example.com', rules)).toBe('example.com rule #3');
   });
 });

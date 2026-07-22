@@ -1,10 +1,11 @@
 {
   "manifest_version": 2,
   "name": "Locale and User-Agent Manager",
-  "version": "0.1.0",
-  "description": "Set locale and user-agent by site.",
+  "version": "0.2.0",
+  "description": "Set locale and user-agent by site rule.",
   "permissions": [
     "storage",
+    "tabs",
     "webRequest",
     "webRequestBlocking",
     "<all_urls>"

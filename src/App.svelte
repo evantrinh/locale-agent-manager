@@ -1,98 +1,122 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { normalizeSite, type SiteRule } from './lib/config';
+  import CurrentSiteRules from './components/CurrentSiteRules.svelte';
+  import RuleEditor from './components/RuleEditor.svelte';
+  import {
+    getRulesForHost,
+    hasRuleValues,
+    makeDraftForNewRule,
+    makeDraftFromRule,
+    makeRuleFromDraft
+  } from './lib/config';
+  import { getCurrentSite, getRules, setRules } from './lib/storage';
+  import type { RuleDraft, SiteRule } from './lib/types';
 
-  const api = (globalThis as { browser?: any; chrome?: any }).browser
-    ?? (globalThis as { browser?: any; chrome?: any }).chrome;
-
+  let currentSite = '';
+  let showInactive = false;
   let rules: SiteRule[] = [];
-  let site = '';
-  let locale = '';
-  let userAgent = '';
-  let error = '';
+  let editorDraft: RuleDraft | null = null;
+  let isEditMode = false;
 
-  function saveRules(nextRules: SiteRule[]): void {
+  $: currentSiteRules = getRulesForHost(currentSite, rules, showInactive);
+  $: allRules = [...rules].sort((a, b) => a.name.localeCompare(b.name));
+
+  async function loadState(): Promise<void> {
+    const [site, savedRules] = await Promise.all([getCurrentSite(), getRules()]);
+    currentSite = site;
+    rules = savedRules;
+  }
+
+  async function saveRules(nextRules: SiteRule[]): Promise<void> {
     rules = nextRules;
-    api.storage.local.set({ siteRules: rules });
+    await setRules(nextRules);
   }
 
-  function loadRules(): void {
-    api.storage.local.get({ siteRules: [] as SiteRule[] }, (data: { siteRules: SiteRule[] }) => {
-      rules = data.siteRules;
-    });
+  function openNewRule(): void {
+    editorDraft = makeDraftForNewRule(currentSite, rules);
+    isEditMode = false;
   }
 
-  function saveRule(): void {
-    const cleanSite = normalizeSite(site);
-    const cleanLocale = locale.trim();
-    const cleanUserAgent = userAgent.trim();
-
-    if (!cleanSite) {
-      error = 'Enter a site name.';
+  function openEditRule(ruleId: string): void {
+    const rule = rules.find((item) => item.id === ruleId);
+    if (!rule) {
       return;
     }
 
-    if (!cleanLocale && !cleanUserAgent) {
-      error = 'Enter a locale, a user-agent, or both.';
+    editorDraft = makeDraftFromRule(rule);
+    isEditMode = true;
+  }
+
+  async function saveRule(event: CustomEvent<{ draft: RuleDraft }>): Promise<void> {
+    const nextRule = makeRuleFromDraft(event.detail.draft);
+    if (!hasRuleValues(nextRule)) {
       return;
     }
 
-    error = '';
-    const nextRule: SiteRule = {
-      site: cleanSite,
-      locale: cleanLocale,
-      userAgent: cleanUserAgent
-    };
-
-    const nextRules = [...rules.filter((rule) => rule.site !== cleanSite), nextRule]
-      .sort((a, b) => a.site.localeCompare(b.site));
-
-    saveRules(nextRules);
-
-    site = '';
-    locale = '';
-    userAgent = '';
+    const otherRules = rules.filter((rule) => rule.id !== nextRule.id);
+    const nextRules = [...otherRules, nextRule].sort((a, b) => a.name.localeCompare(b.name));
+    await saveRules(nextRules);
+    editorDraft = null;
   }
 
-  function removeRule(siteName: string): void {
-    const nextRules = rules.filter((rule) => rule.site !== siteName);
-    saveRules(nextRules);
+  async function removeRule(event: CustomEvent<{ id: string }>): Promise<void> {
+    const nextRules = rules.filter((rule) => rule.id !== event.detail.id);
+    await saveRules(nextRules);
+    editorDraft = null;
   }
 
-  onMount(loadRules);
+  async function setRuleActive(ruleId: string, active: boolean): Promise<void> {
+    const nextRules = rules.map((rule) => (rule.id === ruleId ? { ...rule, active } : rule));
+    await saveRules(nextRules);
+  }
+
+  function toggleShowInactive(): void {
+    showInactive = !showInactive;
+  }
+
+  loadState();
 </script>
 
 <main>
   <h1>Locale and User-Agent Manager</h1>
-  <p>Set one rule for each site. The rule can set locale, user-agent, or both.</p>
 
-  <label for="site">Site</label>
-  <input id="site" bind:value={site} placeholder="example.com" />
+  <CurrentSiteRules
+    {currentSite}
+    rules={currentSiteRules}
+    {showInactive}
+    onToggleShowInactive={toggleShowInactive}
+    onToggleActive={setRuleActive}
+    onAddRule={openNewRule}
+    onEditRule={openEditRule}
+  />
 
-  <label for="locale">Locale</label>
-  <input id="locale" bind:value={locale} placeholder="en-US,en;q=0.9" />
-
-  <label for="user-agent">User-Agent</label>
-  <input id="user-agent" bind:value={userAgent} placeholder="Mozilla/5.0 ..." />
-
-  <button class="primary" on:click={saveRule}>Save rule</button>
-
-  {#if error}
-    <div class="error">{error}</div>
+  {#if editorDraft}
+    <RuleEditor
+      draft={editorDraft}
+      canRemove={isEditMode}
+      on:save={saveRule}
+      on:remove={removeRule}
+      on:close={() => (editorDraft = null)}
+    />
   {/if}
 
-  <ul>
-    {#if rules.length === 0}
-      <li>No rule saved.</li>
+  <div class="all-rules-label">All rules for all sites</div>
+
+  <section class="card">
+    {#if allRules.length === 0}
+      <p class="muted">No rule saved.</p>
     {:else}
-      {#each rules as rule}
-        <li>
-          <div class="row"><strong>Site:</strong> {rule.site}</div>
-          <div class="row"><strong>Locale:</strong> {rule.locale || '(not set)'}</div>
-          <div class="row"><strong>User-Agent:</strong> {rule.userAgent || '(not set)'}</div>
-          <button class="remove" on:click={() => removeRule(rule.site)}>Remove rule</button>
-        </li>
-      {/each}
+      <ul class="list">
+        {#each allRules as rule}
+          <li>
+            <div class="row-head">
+              <strong>{rule.name}</strong>
+              <button class="ghost" on:click={() => openEditRule(rule.id)}>Edit</button>
+            </div>
+            <p class="muted small">{rule.active ? 'Active' : 'Inactive'}</p>
+            <p class="muted small">{rule.sites.join(', ')}</p>
+          </li>
+        {/each}
+      </ul>
     {/if}
-  </ul>
+  </section>
 </main>
