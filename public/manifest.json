@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "Locale and User-Agent Manager",
+  "version": "0.1.0",
+  "description": "Set locale and user-agent by site.",
+  "permissions": [
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_title": "Locale and User-Agent Manager",
+    "default_popup": "index.html"
+  }
+}
