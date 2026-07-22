@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { localeOptions, makeRuleFromDraft } from '../lib/config';
+  import { makeRuleFromDraft } from '../lib/config';
+  import { agentOptionSets, getLocaleLabel, localeOptions } from '../lib/constants';
   import type { RuleDraft } from '../lib/types';
 
   export let draft: RuleDraft;
@@ -53,9 +54,12 @@
   <input id="rule-locale" list="locale-list" bind:value={draft.locale} placeholder="en-US" />
   <datalist id="locale-list">
     {#each localeOptions as locale}
-      <option value={locale}></option>
+      <option value={locale.code}>{locale.flag} {locale.code} - {locale.name}</option>
     {/each}
   </datalist>
+  {#if draft.locale}
+    <p class="muted small">{getLocaleLabel(draft.locale)}</p>
+  {/if}
 
   <label class="inline-control">
     <input type="checkbox" bind:checked={draft.active} />
@@ -65,22 +69,62 @@
   <h3>Agent manager options</h3>
 
   <label for="agent-ua">User-Agent</label>
-  <input id="agent-ua" bind:value={draft.agent.userAgent} placeholder="Mozilla/5.0 ..." />
+  <input id="agent-ua" list="agent-ua-list" bind:value={draft.agent.userAgent} placeholder="Mozilla/5.0 ..." />
+  <datalist id="agent-ua-list">
+    {#each agentOptionSets.userAgent as option}
+      <option value={option}></option>
+    {/each}
+  </datalist>
 
   <label for="agent-platform">Platform</label>
-  <input id="agent-platform" bind:value={draft.agent.platform} placeholder="Win32" />
+  <input id="agent-platform" list="agent-platform-list" bind:value={draft.agent.platform} placeholder="Win32" />
+  <datalist id="agent-platform-list">
+    {#each agentOptionSets.platform as option}
+      <option value={option}></option>
+    {/each}
+  </datalist>
 
   <label for="agent-version">App version</label>
-  <input id="agent-version" bind:value={draft.agent.appVersion} placeholder="5.0 (Windows)" />
+  <input id="agent-version" list="agent-version-list" bind:value={draft.agent.appVersion} placeholder="5.0 (Windows)" />
+  <datalist id="agent-version-list">
+    {#each agentOptionSets.appVersion as option}
+      <option value={option}></option>
+    {/each}
+  </datalist>
 
   <label for="agent-ch-ua">Sec-CH-UA</label>
-  <input id="agent-ch-ua" bind:value={draft.agent.secChUa} placeholder='"Chromium";v="126"' />
+  <input
+    id="agent-ch-ua"
+    list="agent-ch-ua-list"
+    bind:value={draft.agent.secChUa}
+    placeholder='"Not/A)Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+  />
+  <datalist id="agent-ch-ua-list">
+    {#each agentOptionSets.secChUa as option}
+      <option value={option}></option>
+    {/each}
+  </datalist>
 
   <label for="agent-ch-mobile">Sec-CH-UA-Mobile</label>
-  <input id="agent-ch-mobile" bind:value={draft.agent.secChUaMobile} placeholder="?0" />
+  <input id="agent-ch-mobile" list="agent-ch-mobile-list" bind:value={draft.agent.secChUaMobile} placeholder="?0" />
+  <datalist id="agent-ch-mobile-list">
+    {#each agentOptionSets.secChUaMobile as option}
+      <option value={option}></option>
+    {/each}
+  </datalist>
 
   <label for="agent-ch-platform">Sec-CH-UA-Platform</label>
-  <input id="agent-ch-platform" bind:value={draft.agent.secChUaPlatform} placeholder='"Windows"' />
+  <input
+    id="agent-ch-platform"
+    list="agent-ch-platform-list"
+    bind:value={draft.agent.secChUaPlatform}
+    placeholder='"Windows"'
+  />
+  <datalist id="agent-ch-platform-list">
+    {#each agentOptionSets.secChUaPlatform as option}
+      <option value={option}></option>
+    {/each}
+  </datalist>
 
   {#if error}
     <p class="error">{error}</p>

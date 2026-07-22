@@ -1,18 +1,5 @@
 import type { AgentProfile, RuleDraft, SiteRule } from './types';
 
-export const localeOptions = [
-  'en-US',
-  'en-GB',
-  'fr-FR',
-  'de-DE',
-  'es-ES',
-  'it-IT',
-  'ja-JP',
-  'ko-KR',
-  'pt-BR',
-  'zh-CN'
-];
-
 export function normalizeSite(input: string): string {
   const raw = input.trim().toLowerCase();
   if (!raw) {
